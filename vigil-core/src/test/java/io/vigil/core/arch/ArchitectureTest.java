@@ -14,7 +14,7 @@ class ArchitectureTest {
     void vigilCoreMustNotImportSpring() {
         JavaClasses core = new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("io.vigil.core");
+                .importPackages("io.vigil.core..");
 
         ArchRule rule = noClasses()
                 .should().dependOnClassesThat()
