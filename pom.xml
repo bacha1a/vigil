@@ -28,7 +28,6 @@
         <module>vigil-actuator</module>
         <module>vigil-ui</module>
         <module>vigil-spring-boot-starter</module>
-        <module>vigil-test-support</module>
         <module>vigil-demo</module>
         <module>vigil-shedlock-bench</module>
     </modules>
@@ -104,12 +103,6 @@
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-ui</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.vigil</groupId>
-                <artifactId>vigil-test-support</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
