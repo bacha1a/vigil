@@ -15,11 +15,17 @@
     <description>POM-only starter - add this to your pom.xml to use Vigil</description>
     <packaging>pom</packaging>
 
-    <!-- Per PLAN.md: depends on vigil-spring-boot-autoconfigure only -->
     <dependencies>
         <dependency>
             <groupId>io.vigil</groupId>
             <artifactId>vigil-spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- vigil-ui ships the live-dashboard static resources at /vigil/.
+             Exclude in your dependency declaration to opt out. -->
+        <dependency>
+            <groupId>io.vigil</groupId>
+            <artifactId>vigil-ui</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 </project>
