@@ -26,9 +26,11 @@
         <module>vigil-scheduler</module>
         <module>vigil-spring-boot-autoconfigure</module>
         <module>vigil-actuator</module>
+        <module>vigil-ui</module>
         <module>vigil-spring-boot-starter</module>
         <module>vigil-test-support</module>
         <module>vigil-demo</module>
+        <module>vigil-shedlock-bench</module>
     </modules>
 
     <properties>
@@ -39,14 +41,16 @@
 
         <archunit.version>1.3.0</archunit.version>
         <jacoco.version>0.8.11</jacoco.version>
-        <testcontainers.version>1.19.8</testcontainers.version>
+
+        <testcontainers.version>1.21.1</testcontainers.version>
+
         <jedis.version>5.1.3</jedis.version>
         <jacoco.minimum.coverage>0.80</jacoco.minimum.coverage>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Testcontainers BOM (Spring Boot BOM does not import it) -->
+
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
@@ -55,49 +59,60 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Vigil internal modules -->
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-lock-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-lock-redis</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-checkpoint-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-scheduler</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-spring-boot-autoconfigure</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-actuator</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.vigil</groupId>
+                <artifactId>vigil-ui</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>io.vigil</groupId>
                 <artifactId>vigil-test-support</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- ArchUnit (not in Spring Boot BOM) -->
             <dependency>
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
@@ -105,18 +120,27 @@
                 <scope>test</scope>
             </dependency>
 
-            <!-- Jedis (not in Spring Boot BOM) -->
             <dependency>
                 <groupId>redis.clients</groupId>
                 <artifactId>jedis</artifactId>
                 <version>${jedis.version}</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <api.version>1.44</api.version>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
@@ -154,4 +178,5 @@
             </plugins>
         </pluginManagement>
     </build>
+
 </project>
