@@ -9,3 +9,22 @@ target/
 .mvn/timing.properties
 
 verification/results/
+
+docs/graphics/
+docs/defense/
+docs/report/
+docs/slides/
+docs/data/
+
+# generated-artifact tooling (build the locally-kept deliverables/dashboards)
+build_docx.py
+build_pptx.py
+gen_figs.py
+gen_charts.py
+gen_report.py
+
+**/tla/states/
+*_TTrace_*.tla
+*_TTrace_*.bin
+
+verification/.tools/

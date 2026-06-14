@@ -12,20 +12,27 @@
 
     <artifactId>vigil-spring-boot-starter</artifactId>
     <name>Vigil Spring Boot Starter</name>
-    <description>POM-only starter - add this to your pom.xml to use Vigil</description>
-    <packaging>pom</packaging>
+    <description>Starter - add this one dependency to your pom.xml to use Vigil</description>
 
     <dependencies>
         <dependency>
             <groupId>io.vigil</groupId>
             <artifactId>vigil-spring-boot-autoconfigure</artifactId>
         </dependency>
-        <!-- vigil-ui ships the live-dashboard static resources at /vigil/.
-             Exclude in your dependency declaration to opt out. -->
+        <!-- Default backend: JDBC fencing lock + checkpoint store.
+             For Redis instead, exclude these and add vigil-lock-redis. -->
         <dependency>
             <groupId>io.vigil</groupId>
-            <artifactId>vigil-ui</artifactId>
-            <scope>runtime</scope>
+            <artifactId>vigil-lock-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.vigil</groupId>
+            <artifactId>vigil-checkpoint-jdbc</artifactId>
+        </dependency>
+        <!-- vigil-actuator exposes job state at /actuator/vigil-jobs. -->
+        <dependency>
+            <groupId>io.vigil</groupId>
+            <artifactId>vigil-actuator</artifactId>
         </dependency>
     </dependencies>
 </project>
