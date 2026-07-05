@@ -32,7 +32,7 @@ class ArchitectureTest {
         ArchRule rule = noClasses()
                 .should().dependOnClassesThat()
                 .resideInAPackage("io.vigil.lock.redis..")
-                .as("vigil-lock-jdbc must not depend on vigil-lock-redis");
+                .as("vigil-jdbc lock must not depend on vigil-redis lock");
 
         rule.check(jdbcClasses);
     }
@@ -45,7 +45,7 @@ class ArchitectureTest {
         ArchRule rule = noClasses()
                 .should().dependOnClassesThat()
                 .resideInAPackage("io.vigil.lock.jdbc..")
-                .as("vigil-lock-redis must not depend on vigil-lock-jdbc");
+                .as("vigil-redis lock must not depend on vigil-jdbc lock");
 
         rule.check(redisClasses);
     }
