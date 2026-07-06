@@ -4,13 +4,10 @@ import io.vigil.core.exception.LockStolenException;
 import io.vigil.core.model.CheckpointEntry;
 import io.vigil.core.model.CheckpointStatus;
 import io.vigil.core.spi.CheckpointManager;
+import io.vigil.jdbc.SqlDialect;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -30,18 +27,24 @@ public class JdbcCheckpointManager implements CheckpointManager {
     private final String              sqlStatus;
     private final String              sqlStageNames;
     private final String              sqlHasAnyCheckpoint;
+    private final String              sqlClearRun;
+
+    private static final String BASE = "/io/vigil/checkpoint/jdbc";
 
     public JdbcCheckpointManager(JdbcTemplate jdbc, TransactionTemplate tx) {
         this.jdbc                = jdbc;
         this.tx                  = tx;
-        this.sqlLockForUpdate    = loadSql("lock-for-update.sql");
-        this.sqlCheckpointToken  = loadSql("checkpoint-token.sql");
-        this.sqlInsert           = loadSql("insert.sql");
-        this.sqlUpdate           = loadSql("update.sql");
-        this.sqlLoad             = loadSql("load.sql");
-        this.sqlStatus           = loadSql("status.sql");
-        this.sqlStageNames       = loadSql("stage-names.sql");
-        this.sqlHasAnyCheckpoint = loadSql("has-any-checkpoint.sql");
+
+        SqlDialect dialect       = SqlDialect.detect(jdbc);
+        this.sqlLockForUpdate    = dialect.load(BASE, "lock-for-update.sql");
+        this.sqlCheckpointToken  = dialect.load(BASE, "checkpoint-token.sql");
+        this.sqlInsert           = dialect.load(BASE, "insert.sql");
+        this.sqlUpdate           = dialect.load(BASE, "update.sql");
+        this.sqlLoad             = dialect.load(BASE, "load.sql");
+        this.sqlStatus           = dialect.load(BASE, "status.sql");
+        this.sqlStageNames       = dialect.load(BASE, "stage-names.sql");
+        this.sqlHasAnyCheckpoint = dialect.load(BASE, "has-any-checkpoint.sql");
+        this.sqlClearRun         = dialect.load(BASE, "clear-run.sql");
     }
 
     @Override
@@ -73,6 +76,17 @@ public class JdbcCheckpointManager implements CheckpointManager {
     public boolean hasAnyCheckpoint(String jobName, UUID runId) {
         Long count = jdbc.queryForObject(sqlHasAnyCheckpoint, Long.class, jobName, runId.toString());
         return count != null && count > 0L;
+    }
+
+    @Override
+    public void clearRun(String jobName, UUID runId, long fencingToken) {
+        tx.executeWithoutResult(status -> {
+            List<Map<String, Object>> lockRows = jdbc.queryForList(sqlLockForUpdate, jobName);
+            if (lockRows.isEmpty() || lockToken(lockRows.getFirst()) != fencingToken) {
+                return;
+            }
+            jdbc.update(sqlClearRun, jobName, runId.toString());
+        });
     }
 
     private void guardFencingToken(CheckpointEntry entry) {
@@ -125,17 +139,5 @@ public class JdbcCheckpointManager implements CheckpointManager {
 
     private static long checkpointToken(Map<String, Object> row) {
         return ((Number) row.get("fencing_token")).longValue();
-    }
-
-    private static String loadSql(String name) {
-        String path = "/io/vigil/checkpoint/jdbc/" + name;
-        try (InputStream is = JdbcCheckpointManager.class.getResourceAsStream(path)) {
-            if (is == null) {
-                throw new IllegalStateException("SQL file not found on classpath: " + path);
-            }
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8).strip();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to load SQL: " + name, e);
-        }
     }
 }
