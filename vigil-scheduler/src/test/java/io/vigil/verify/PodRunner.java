@@ -10,8 +10,14 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public final class PodRunner {
@@ -24,7 +30,7 @@ public final class PodRunner {
             case "init"      -> init(args[1]);
             case "run"       -> run(args[1], args[2], args[3], args[4],
                                     Long.parseLong(args[5]), Long.parseLong(args[6]), Long.parseLong(args[7]));
-            case "reconcile" -> reconcile(args[1], args[2], args[3]);
+            case "reconcile" -> reconcile(args[1], args[2], args[3], args[4]);
             default          -> throw new IllegalArgumentException("unknown mode: " + mode);
         }
     }
@@ -106,15 +112,32 @@ public final class PodRunner {
         return id == null ? 0L : id;
     }
 
-    static void reconcile(String url, String job, String lib) {
+    static void reconcile(String url, String job, String lib, String outDir) throws IOException {
         JdbcTemplate jdbc = jdbc(url);
         Long total = jdbc.queryForObject("SELECT count(*) FROM work_log WHERE job_name = ? AND lib = ?", Long.class, job, lib);
-        Long violations = jdbc.queryForObject(
-                "SELECT count(*) FROM (SELECT acq_id, max(acq_id) OVER (ORDER BY seq ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS run_max " +
-                "FROM work_log WHERE job_name = ? AND lib = ?) t WHERE run_max IS NOT NULL AND acq_id < run_max",
-                Long.class, job, lib);
         Long acquisitions = jdbc.queryForObject("SELECT count(*) FROM acquisitions WHERE job_name = ? AND lib = ?", Long.class, job, lib);
+
+        List<Map<String, Object>> viol = jdbc.queryForList(
+                "SELECT seq, pod, acq_id, run_max, EXTRACT(EPOCH FROM ts) AS epoch FROM (" +
+                "SELECT seq, pod, acq_id, ts, max(acq_id) OVER (ORDER BY seq ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS run_max " +
+                "FROM work_log WHERE job_name = ? AND lib = ?) t WHERE run_max IS NOT NULL AND acq_id < run_max ORDER BY seq", job, lib);
+        List<Map<String, Object>> log = jdbc.queryForList(
+                "SELECT seq, pod, acq_id, EXTRACT(EPOCH FROM ts) AS epoch FROM work_log WHERE job_name = ? AND lib = ? ORDER BY seq", job, lib);
+
+        Path dir = Path.of(outDir);
+        Files.createDirectories(dir);
+
+        List<String> vcsv = new ArrayList<>();
+        vcsv.add("seq,pod,acq_id,run_max,epoch");
+        for (var r : viol) vcsv.add(r.get("seq") + "," + r.get("pod") + "," + r.get("acq_id") + "," + r.get("run_max") + "," + r.get("epoch"));
+        Files.write(dir.resolve("violations-" + lib + ".csv"), vcsv);
+
+        List<String> wcsv = new ArrayList<>();
+        wcsv.add("seq,pod,acq_id,epoch");
+        for (var r : log) wcsv.add(r.get("seq") + "," + r.get("pod") + "," + r.get("acq_id") + "," + r.get("epoch"));
+        Files.write(dir.resolve("worklog-" + lib + ".csv"), wcsv);
+
         System.out.printf("{\"lib\":\"%s\",\"acquisitions\":%d,\"committedUnits\":%d,\"violations\":%d}%n",
-                lib, acquisitions, total, violations);
+                lib, acquisitions, total, (long) viol.size());
     }
 }

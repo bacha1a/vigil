@@ -17,6 +17,8 @@ PGPORT="5544"
 URL="jdbc:postgresql://localhost:${PGPORT}/soak?user=postgres&password=pass"
 DURATION_MS=$((DURATION_S * 1000))
 CPFILE="$(mktemp)"
+RESULTS="$ROOT/verification/results/soak-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$RESULTS"
 
 echo "== starting postgres =="
 docker rm -f "$PG" >/dev/null 2>&1 || true
@@ -46,6 +48,7 @@ run_lib() {
     local deadline=$((SECONDS + DURATION_S))
     while [ $SECONDS -lt $deadline ]; do
       sleep "$STOP_EVERY_S"
+      echo "$(date +%s.%N) STOP ${lib} pod-1" >> "$RESULTS/injections.log"
       kill -STOP "$P1" 2>/dev/null || true
       sleep "$STOP_FOR_S"
       kill -CONT "$P1" 2>/dev/null || true
@@ -58,11 +61,21 @@ run_lib() {
   kill "$FAULT" 2>/dev/null || true
 
   echo -n "== ${lib}: result == "
-  "$JAVA" -cp "$CP" io.vigil.verify.PodRunner reconcile "$URL" job "$lib"
+  local out
+  out="$("$JAVA" -cp "$CP" io.vigil.verify.PodRunner reconcile "$URL" job "$lib" "$RESULTS")"
+  echo "$out"
+  echo "$out" > "$RESULTS/summary-${lib}.json"
 }
 
 run_lib vigil
 run_lib shedlock
+
+printf '{\n  "generatedUtc": "%s",\n  "durationS": %s,\n  "faultEverySec": %s,\n  "faultForSec": %s,\n  "vigil": %s,\n  "shedlock": %s\n}\n' \
+  "$(date -u +%FT%TZ)" "$DURATION_S" "$STOP_EVERY_S" "$STOP_FOR_S" \
+  "$(cat "$RESULTS/summary-vigil.json")" "$(cat "$RESULTS/summary-shedlock.json")" > "$RESULTS/summary.json"
+
+echo "== results written to $RESULTS =="
+ls -1 "$RESULTS"
 
 echo "== cleanup =="
 docker rm -f "$PG" >/dev/null 2>&1 || true
