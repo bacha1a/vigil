@@ -4,7 +4,10 @@ if expires_at and tonumber(expires_at) > now then
     return {0, nil, nil}
 end
 local token  = redis.call('INCR', 'vigil:token:' .. KEYS[1])
-local run_id = ARGV[3]
+local run_id = redis.call('HGET', KEYS[1], 'run_id')
+if not run_id then
+    run_id = ARGV[3]
+end
 redis.call('HMSET', KEYS[1],
     'holder',      ARGV[1],
     'token',       tostring(token),

@@ -48,7 +48,8 @@ public class RedisLock implements FencedLock {
         }
 
         long token = ((Number) result.get(1)).longValue();
-        return Optional.of(new LockAcquisition(token, UUID.fromString(runId)));
+        String grantedRunId = String.valueOf(result.get(2));
+        return Optional.of(new LockAcquisition(token, UUID.fromString(grantedRunId)));
     }
 
     @Override
@@ -67,6 +68,12 @@ public class RedisLock implements FencedLock {
                 releaseScript,
                 List.of(lockKey(jobName)),
                 String.valueOf(fencingToken));
+    }
+
+    @Override
+    public void checkConnectivity() {
+        redis.execute((org.springframework.data.redis.core.RedisCallback<String>)
+                connection -> connection.ping());
     }
 
     private static String lockKey(String jobName) {
