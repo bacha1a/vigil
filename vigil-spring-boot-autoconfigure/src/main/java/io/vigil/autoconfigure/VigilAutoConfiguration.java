@@ -1,11 +1,16 @@
 package io.vigil.autoconfigure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vigil.checkpoint.dynamodb.DynamoCheckpointManager;
 import io.vigil.checkpoint.jdbc.JdbcCheckpointManager;
+import io.vigil.checkpoint.mongo.MongoCheckpointManager;
 import io.vigil.core.spi.CheckpointManager;
 import io.vigil.core.spi.FencedLock;
+import io.vigil.lock.dynamodb.DynamoFencedLock;
 import io.vigil.lock.jdbc.JdbcFencedLock;
+import io.vigil.lock.mongo.MongoFencedLock;
 import io.vigil.lock.redis.RedisLock;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import io.vigil.autoconfigure.http.VigilRestTemplateCustomizer;
 import io.vigil.autoconfigure.schema.VigilSchemaInitializer;
 import io.vigil.scheduler.advisor.ExactlyOnceStartupValidator;
@@ -32,6 +37,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.lang.Nullable;
@@ -137,7 +143,7 @@ public class VigilAutoConfiguration {
     @ConditionalOnClass(name = "org.flywaydb.core.Flyway")
     static class FlywaySchemaConfiguration {
 
-        private static final String VIGIL_LOCATION = "classpath:io/vigil/db/migration";
+        private static final String VIGIL_LOCATION = "classpath:io/vigil/db/migration/{vendor}";
 
         @Bean
         public FlywayConfigurationCustomizer vigilFlywayCustomizer() {
@@ -183,6 +189,54 @@ public class VigilAutoConfiguration {
         @ConditionalOnMissingBean(CheckpointManager.class)
         public JdbcCheckpointManager jdbcCheckpointManager(JdbcTemplate jdbc, TransactionTemplate tx) {
             return new JdbcCheckpointManager(jdbc, tx);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.vigil.lock.mongo.MongoFencedLock")
+    static class MongoLockConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(FencedLock.class)
+        @ConditionalOnBean(MongoDatabaseFactory.class)
+        public MongoFencedLock mongoFencedLock(MongoDatabaseFactory factory) {
+            return new MongoFencedLock(factory.getMongoDatabase());
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.vigil.checkpoint.mongo.MongoCheckpointManager")
+    static class MongoCheckpointConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(CheckpointManager.class)
+        @ConditionalOnBean(MongoDatabaseFactory.class)
+        public MongoCheckpointManager mongoCheckpointManager(MongoDatabaseFactory factory) {
+            return new MongoCheckpointManager(factory.getMongoDatabase());
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.vigil.lock.dynamodb.DynamoFencedLock")
+    static class DynamoLockConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(FencedLock.class)
+        @ConditionalOnBean(DynamoDbClient.class)
+        public DynamoFencedLock dynamoFencedLock(DynamoDbClient ddb) {
+            return new DynamoFencedLock(ddb);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.vigil.checkpoint.dynamodb.DynamoCheckpointManager")
+    static class DynamoCheckpointConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(CheckpointManager.class)
+        @ConditionalOnBean(DynamoDbClient.class)
+        public DynamoCheckpointManager dynamoCheckpointManager(DynamoDbClient ddb) {
+            return new DynamoCheckpointManager(ddb);
         }
     }
 }

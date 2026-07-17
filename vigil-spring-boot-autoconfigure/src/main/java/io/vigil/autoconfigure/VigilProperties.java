@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "spring.vigil")
 public class VigilProperties {
 
-    public enum Backend { JDBC, REDIS, AUTO }
+    public enum Backend { JDBC, REDIS, MONGO, DYNAMODB, AUTO }
 
     private boolean enabled               = true;
     private Backend backend               = Backend.AUTO;

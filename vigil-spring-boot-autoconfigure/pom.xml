@@ -25,17 +25,27 @@
         </dependency>
         <dependency>
             <groupId>io.vigil</groupId>
-            <artifactId>vigil-lock-jdbc</artifactId>
+            <artifactId>vigil-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>io.vigil</groupId>
-            <artifactId>vigil-lock-redis</artifactId>
+            <artifactId>vigil-redis</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>io.vigil</groupId>
-            <artifactId>vigil-checkpoint-jdbc</artifactId>
+            <artifactId>vigil-mongo</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>io.vigil</groupId>
+            <artifactId>vigil-dynamodb</artifactId>
             <optional>true</optional>
         </dependency>
         <dependency>

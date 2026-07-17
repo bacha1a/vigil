@@ -42,11 +42,13 @@ class VigilPropertiesTest {
     }
 
     @Test
-    void backendEnumHasAllThreeValues() {
+    void backendEnumHasAllValues() {
         assertThat(VigilProperties.Backend.values())
                 .containsExactly(
                         VigilProperties.Backend.JDBC,
                         VigilProperties.Backend.REDIS,
+                        VigilProperties.Backend.MONGO,
+                        VigilProperties.Backend.DYNAMODB,
                         VigilProperties.Backend.AUTO);
     }
 }
