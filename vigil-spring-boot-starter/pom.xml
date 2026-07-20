@@ -20,14 +20,10 @@
             <artifactId>vigil-spring-boot-autoconfigure</artifactId>
         </dependency>
         <!-- Default backend: JDBC fencing lock + checkpoint store.
-             For Redis instead, exclude these and add vigil-lock-redis. -->
+             For Redis instead, exclude this and add vigil-redis. -->
         <dependency>
             <groupId>io.vigil</groupId>
-            <artifactId>vigil-lock-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.vigil</groupId>
-            <artifactId>vigil-checkpoint-jdbc</artifactId>
+            <artifactId>vigil-jdbc</artifactId>
         </dependency>
         <!-- vigil-actuator exposes job state at /actuator/vigil-jobs. -->
         <dependency>
