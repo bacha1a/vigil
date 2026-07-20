@@ -18,4 +18,6 @@ public interface FencedLock {
     void release(String jobName, long fencingToken);
 
     default void ensureSeedRow(String jobName) {}
+
+    default void checkConnectivity() {}
 }
