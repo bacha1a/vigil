@@ -3,6 +3,10 @@ if current_token ~= ARGV[1] then
     return 0
 end
 local now = tonumber(redis.call('TIME')[1])
+local expires_at = tonumber(redis.call('HGET', KEYS[1], 'expires_at'))
+if expires_at == nil or expires_at < now then
+    return 0
+end
 local ttl = tonumber(ARGV[2])
 redis.call('HSET', KEYS[1], 'expires_at', tostring(now + ttl))
 redis.call('EXPIRE', KEYS[1], ttl + 5)

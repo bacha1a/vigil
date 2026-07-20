@@ -82,7 +82,8 @@ public final class MongoFencedLock implements FencedLock {
     public boolean tryRenew(String jobName, long fencingToken, Duration ttl) {
         Bson filter = new Document("_id", jobName)
                 .append("token", fencingToken)
-                .append("status", "HELD");
+                .append("status", "HELD")
+                .append("$expr", new Document("$gte", List.of("$expiresAt", "$$NOW")));
         List<Bson> update = List.of(new Document("$set",
                 new Document("expiresAt", new Document("$add", List.of("$$NOW", ttl.toMillis())))));
 

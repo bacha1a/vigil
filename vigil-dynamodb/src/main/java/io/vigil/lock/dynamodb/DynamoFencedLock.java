@@ -118,12 +118,13 @@ public final class DynamoFencedLock implements FencedLock {
             ddb.updateItem(b -> b.tableName(table)
                     .key(Map.of("job_name", s(jobName)))
                     .updateExpression("SET expires_at = :exp")
-                    .conditionExpression("#t = :token AND #s = :held")
-                    .expressionAttributeNames(Map.of("#t", "token", "#s", "status"))
+                    .conditionExpression("#t = :token AND #s = :held AND #e >= :now")
+                    .expressionAttributeNames(Map.of("#t", "token", "#s", "status", "#e", "expires_at"))
                     .expressionAttributeValues(Map.of(
                             ":exp", n(expires),
                             ":token", n(fencingToken),
-                            ":held", s("HELD"))));
+                            ":held", s("HELD"),
+                            ":now", n(Instant.now().toEpochMilli()))));
             return true;
         } catch (ConditionalCheckFailedException e) {
             return false;
