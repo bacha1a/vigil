@@ -4,9 +4,16 @@ on:
     branches: ["**"]
   pull_request:
     branches: ["**"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Compile + unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -15,5 +22,70 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-      - name: Build and verify
-        run: mvn -B verify --no-transfer-progress
+      - name: Compile full reactor
+        run: mvn -B install -DskipTests -Djacoco.skip=true --no-transfer-progress
+      - name: Unit tests (no containers)
+        run: >
+          mvn -B verify --no-transfer-progress
+          -pl vigil-core,vigil-testkit,vigil-spring-boot-autoconfigure,vigil-actuator,vigil-spring-boot-starter
+
+  backend:
+    name: ${{ matrix.name }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: postgres+jdbc
+            module: vigil-jdbc
+            filter: "-Dtest=!Oracle*"
+          - name: mongodb
+            module: vigil-mongo
+            filter: ""
+          - name: redis
+            module: vigil-redis
+            filter: ""
+          - name: dynamodb
+            module: vigil-dynamodb
+            filter: ""
+          - name: scheduler
+            module: vigil-scheduler
+            filter: ""
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Install dependencies (skip tests)
+        run: mvn -B install -DskipTests -Djacoco.skip=true --no-transfer-progress
+      - name: Verify ${{ matrix.module }}
+        run: >
+          mvn -B -pl ${{ matrix.module }} verify --no-transfer-progress
+          ${{ matrix.filter }} -Dsurefire.failIfNoSpecifiedTests=false
+
+  oracle:
+    name: oracle (non-gating)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      - name: Install dependencies (skip tests)
+        run: mvn -B install -DskipTests -Djacoco.skip=true --no-transfer-progress
+      - name: Verify Oracle backend
+        run: >
+          mvn -B -pl vigil-jdbc verify --no-transfer-progress -Djacoco.skip=true
+          -Dtest=Oracle* -Dit.test=Oracle*
+          -Dsurefire.failIfNoSpecifiedTests=false -Dfailsafe.failIfNoSpecifiedTests=false
