@@ -17,4 +17,6 @@ public interface CheckpointManager {
     default List<String> listStageNames(String jobName) { return List.of(); }
 
     default boolean hasAnyCheckpoint(String jobName, UUID runId) { return false; }
+
+    default void clearRun(String jobName, UUID runId, long fencingToken) {}
 }
