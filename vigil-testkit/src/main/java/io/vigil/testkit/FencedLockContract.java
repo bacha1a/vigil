@@ -102,4 +102,27 @@ public abstract class FencedLockContract {
         lock().tryAcquire(job, "pod-B", Duration.ofSeconds(30)).orElseThrow();
         assertThat(lock().tryRenew(job, stolen, Duration.ofSeconds(30))).isFalse();
     }
+
+    @Test
+    @DisplayName("an expired lease cannot be renewed back to life even when no other pod has taken over")
+    void renewAfterExpiry_isRejected() throws InterruptedException {
+        long token = lock().tryAcquire(job, "pod-A", Duration.ofSeconds(1)).orElseThrow().fencingToken();
+        Thread.sleep(2000);
+
+        assertThat(lock().tryRenew(job, token, Duration.ofSeconds(30)))
+                .as("a lapsed lease must be re-acquired, not resurrected")
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("a lease that expired and was renewed away is still free for another pod to take")
+    void renewAfterExpiry_leavesLockAcquirable() throws InterruptedException {
+        long token = lock().tryAcquire(job, "pod-A", Duration.ofSeconds(1)).orElseThrow().fencingToken();
+        Thread.sleep(2000);
+        lock().tryRenew(job, token, Duration.ofSeconds(300));
+
+        assertThat(lock().tryAcquire(job, "pod-B", Duration.ofSeconds(30)))
+                .as("a failed renew must not extend the lease and block failover")
+                .isPresent();
+    }
 }
