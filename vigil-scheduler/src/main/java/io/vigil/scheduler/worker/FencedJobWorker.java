@@ -152,7 +152,19 @@ public class FencedJobWorker {
             deps.listener().onJobCompleted(jobName, outcome.name().toLowerCase(), elapsed);
             if (outcome == RunOutcome.STOLEN) deps.listener().onLockStolen(jobName);
         }
+        if (outcome == RunOutcome.SUCCESS && ctx != null && deps.checkpointManager() != null) {
+            clearCheckpoints(acquisition);
+        }
         deps.fencedLock().release(jobName, acquisition.fencingToken());
+    }
+
+    private void clearCheckpoints(LockAcquisition acquisition) {
+        try {
+            deps.checkpointManager().clearRun(jobName, acquisition.runId(), acquisition.fencingToken());
+        } catch (RuntimeException e) {
+            log.warn("[Vigil] Job '{}' completed but checkpoint cleanup failed (token={})",
+                    jobName, acquisition.fencingToken(), e);
+        }
     }
 
     private boolean hasJobContext() {
@@ -163,7 +175,8 @@ public class FencedJobWorker {
 
     private JobContext bindContext(LockAcquisition acquisition) {
         var ctx = new JobContext(jobName, acquisition.runId(),
-                acquisition.fencingToken(), deps.checkpointManager(), deps.jackson(), deps.listener());
+                acquisition.fencingToken(), deps.checkpointManager(), deps.jackson(),
+                deps.listener(), deps.fencedLock());
         JobContext.bind(ctx);
         return ctx;
     }

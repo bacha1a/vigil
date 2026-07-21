@@ -4,9 +4,11 @@ import io.vigil.scheduler.context.ExactlyOnceContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vigil.core.exception.CheckpointTypeException;
+import io.vigil.core.exception.LockStolenException;
 import io.vigil.core.model.CheckpointEntry;
 import io.vigil.core.model.CheckpointStatus;
 import io.vigil.core.spi.CheckpointManager;
+import io.vigil.core.spi.FencedLock;
 import io.vigil.core.support.StageKeys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +56,39 @@ class JobContextTest {
     @BeforeEach
     void setUp() {
         ctx = new JobContext(JOB, RUN_ID, TOKEN, checkpointManager, new ObjectMapper());
+    }
+
+    @Nested
+    @DisplayName("assertStillHeld")
+    class AssertStillHeld {
+
+        @Test
+        @DisplayName("does not throw when the lock is still held")
+        void heldLock_doesNotThrow() {
+            FencedLock lock = mock(FencedLock.class);
+            when(lock.tryRenew(JOB, TOKEN)).thenReturn(true);
+            JobContext c = new JobContext(JOB, RUN_ID, TOKEN, checkpointManager, new ObjectMapper(), null, lock);
+
+            c.assertStillHeld();
+
+            verify(lock).tryRenew(JOB, TOKEN);
+        }
+
+        @Test
+        @DisplayName("throws LockStolenException when the lock was lost")
+        void stolenLock_throwsLockStolen() {
+            FencedLock lock = mock(FencedLock.class);
+            when(lock.tryRenew(JOB, TOKEN)).thenReturn(false);
+            JobContext c = new JobContext(JOB, RUN_ID, TOKEN, checkpointManager, new ObjectMapper(), null, lock);
+
+            assertThatThrownBy(c::assertStillHeld).isInstanceOf(LockStolenException.class);
+        }
+
+        @Test
+        @DisplayName("throws IllegalStateException when the context is not lock-backed")
+        void noLock_throwsIllegalState() {
+            assertThatThrownBy(ctx::assertStillHeld).isInstanceOf(IllegalStateException.class);
+        }
     }
 
     @Nested

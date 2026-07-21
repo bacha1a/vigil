@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vigil.core.exception.CheckpointTypeException;
+import io.vigil.core.exception.LockStolenException;
 import io.vigil.core.model.CheckpointEntry;
 import io.vigil.core.model.CheckpointStatus;
 import io.vigil.core.spi.CheckpointManager;
+import io.vigil.core.spi.FencedLock;
 import io.vigil.core.support.CheckpointTypeValidator;
 import io.vigil.core.support.StageKeys;
 import io.vigil.core.support.TriFunction;
@@ -36,21 +38,29 @@ public class JobContext {
     private final AtomicLong               itemsProcessed = new AtomicLong(0);
     private final boolean                  resume;
     private final VigilJobLifecycleListener listener;
+    private final FencedLock               fencedLock;
 
     public JobContext(String jobName, UUID runId, long fencingToken,
                       CheckpointManager checkpointManager, ObjectMapper jackson) {
-        this(jobName, runId, fencingToken, checkpointManager, jackson, null);
+        this(jobName, runId, fencingToken, checkpointManager, jackson, null, null);
     }
 
     public JobContext(String jobName, UUID runId, long fencingToken,
                       CheckpointManager checkpointManager, ObjectMapper jackson,
                       VigilJobLifecycleListener listener) {
+        this(jobName, runId, fencingToken, checkpointManager, jackson, listener, null);
+    }
+
+    public JobContext(String jobName, UUID runId, long fencingToken,
+                      CheckpointManager checkpointManager, ObjectMapper jackson,
+                      VigilJobLifecycleListener listener, FencedLock fencedLock) {
         this.jobName           = jobName;
         this.runId             = runId;
         this.fencingToken      = fencingToken;
         this.checkpointManager = checkpointManager;
         this.jackson           = jackson;
         this.listener          = listener;
+        this.fencedLock        = fencedLock;
         this.resume            = checkpointManager.hasAnyCheckpoint(jobName, runId);
         if (resume && listener != null) listener.onFailoverRecovery(jobName);
     }
@@ -213,6 +223,16 @@ public class JobContext {
     public UUID getRunId()          { return runId; }
     public long getItemsProcessed() { return itemsProcessed.get(); }
     public boolean isResume()       { return resume; }
+
+    public void assertStillHeld() {
+        if (fencedLock == null) {
+            throw new IllegalStateException("assertStillHeld() requires a lock-backed JobContext");
+        }
+        if (!fencedLock.tryRenew(jobName, fencingToken)) {
+            throw new LockStolenException(
+                    "Job '" + jobName + "' no longer holds the lock (token " + fencingToken + ")");
+        }
+    }
 
     private <R> R withContext(String itemId, Supplier<R> body) {
         ExactlyOnceContext.bind(runId.toString(), fencingToken, itemId);

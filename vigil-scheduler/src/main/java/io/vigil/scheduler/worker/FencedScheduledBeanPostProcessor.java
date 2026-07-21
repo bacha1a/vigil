@@ -182,6 +182,11 @@ public class FencedScheduledBeanPostProcessor
 
     private void warnOnShortTtl() {
         for (var reg : registrations) {
+            if (reg.lockTtlSeconds() <= 0) {
+                throw new IllegalStateException(String.format(
+                        "[Vigil] Job '%s' has lockTtlSeconds=%d - must be a positive number of seconds.",
+                        reg.jobName(), reg.lockTtlSeconds()));
+            }
             if (reg.lockTtlSeconds() < 60) {
                 log.warn("[Vigil] Job '{}' has lockTtlSeconds={} (< 60). "
                         + "This risks premature lock expiry under GC pauses.",

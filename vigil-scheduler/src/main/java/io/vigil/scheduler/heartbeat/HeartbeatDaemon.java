@@ -57,15 +57,25 @@ public class HeartbeatDaemon {
             for (HeartbeatEntry entry : new ArrayList<>(registry.values())) {
                 try {
                     boolean renewed = fencedLock.tryRenew(entry.jobName(), entry.fencingToken(), entry.ttl());
-                    if (!renewed) {
-                        log.warn("[Vigil] Lock renewal failed for job '{}' token {} - interrupting job thread",
+                    if (renewed) {
+                        entry.markRenewed();
+                    } else {
+                        log.warn("[Vigil] Lock renewal failed for job '{}' token {} - stolen, interrupting job thread",
                                 entry.jobName(), entry.fencingToken());
-                        entry.jobThread().interrupt();
-                        registry.remove(entry.jobName());
+                        interruptAndRemove(entry);
                     }
                 } catch (RuntimeException e) {
-                    log.warn("[Vigil] Heartbeat tryRenew threw for job '{}' token {} - will retry next tick",
-                            entry.jobName(), entry.fencingToken(), e);
+                    long sinceRenewMs = System.currentTimeMillis() - entry.lastRenewedAtMillis();
+                    if (sinceRenewMs >= entry.ttl().toMillis()) {
+                        log.error("[Vigil] Cannot renew lock for job '{}' token {} for {}ms (>= ttl {}ms) - "
+                                        + "lease has expired, self-fencing and interrupting job thread",
+                                entry.jobName(), entry.fencingToken(), sinceRenewMs, entry.ttl().toMillis());
+                        interruptAndRemove(entry);
+                    } else {
+                        log.warn("[Vigil] Heartbeat tryRenew threw for job '{}' token {} ({}ms since last renew) "
+                                        + "- will retry next tick",
+                                entry.jobName(), entry.fencingToken(), sinceRenewMs, e);
+                    }
                 }
             }
 
@@ -83,4 +93,10 @@ public class HeartbeatDaemon {
             }
         }
     }
+
+    private void interruptAndRemove(HeartbeatEntry entry) {
+        entry.jobThread().interrupt();
+        registry.remove(entry.jobName());
+    }
 }
+

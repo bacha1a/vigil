@@ -104,6 +104,44 @@ class HeartbeatDaemonTest {
             assertThat(threadAInterrupted.get()).isTrue();
             assertThat(threadBInterrupted.get()).isFalse();
         }
+
+        @Test
+        @DisplayName("renewal that keeps throwing past the TTL self-fences and interrupts the job thread")
+        void renewalThrowsPastTtl_selfFencesAndInterrupts() throws InterruptedException {
+            when(fencedLock.tryRenew(anyString(), anyLong(), any(Duration.class)))
+                    .thenThrow(new RuntimeException("database unreachable"));
+
+            AtomicBoolean wasInterrupted = new AtomicBoolean(false);
+            Thread jobThread = new Thread(() -> {
+                try { Thread.sleep(Long.MAX_VALUE); } catch (InterruptedException e) { wasInterrupted.set(true); }
+            });
+            jobThread.start();
+            daemon.register("job", 1L, jobThread, Duration.ofMillis(10));
+            daemon.start();
+
+            Thread.sleep(2500);
+
+            assertThat(wasInterrupted.get()).isTrue();
+        }
+
+        @Test
+        @DisplayName("a transient renewal failure within the TTL does NOT interrupt the job thread")
+        void renewalThrowsWithinTtl_doesNotInterrupt() throws InterruptedException {
+            when(fencedLock.tryRenew(anyString(), anyLong(), any(Duration.class)))
+                    .thenThrow(new RuntimeException("transient blip"));
+
+            AtomicBoolean wasInterrupted = new AtomicBoolean(false);
+            Thread jobThread = new Thread(() -> {
+                try { Thread.sleep(Long.MAX_VALUE); } catch (InterruptedException e) { wasInterrupted.set(true); }
+            });
+            jobThread.start();
+            daemon.register("job", 1L, jobThread, Duration.ofSeconds(30));
+            daemon.start();
+
+            Thread.sleep(2500);
+
+            assertThat(wasInterrupted.get()).isFalse();
+        }
     }
 
     @Nested
