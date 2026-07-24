@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DURATION_S="${1:-45}"
-WORK_MS="${2:-120}"
-LEASE_MS="${3:-800}"
-STOP_EVERY_S="${4:-3}"
-STOP_FOR_S="${5:-2}"
+if [ "${1:-}" = "soak" ]; then
+  DURATION_S=7200
+  WORK_MS=200
+  LEASE_MS=3000
+  STOP_EVERY_S=180
+  STOP_FOR_S=6
+else
+  DURATION_S="${1:-45}"
+  WORK_MS="${2:-120}"
+  LEASE_MS="${3:-800}"
+  STOP_EVERY_S="${4:-3}"
+  STOP_FOR_S="${5:-2}"
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

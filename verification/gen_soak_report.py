@@ -56,6 +56,11 @@ def main():
     shed = summary["shedlock"]
     vigil = summary["vigil"]
 
+    dur = float(summary.get("durationS", 1)) or 1.0
+
+    def tp(x):
+        return round(x / dur, 2)
+
     data = {
         "faults": faults_n,
         "shedViolations": vio_n,
@@ -75,6 +80,10 @@ def main():
         "{{SHED_ACQ}}": str(shed["acquisitions"]),
         "{{VIGIL_UNITS}}": str(vigil["committedUnits"]),
         "{{SHED_UNITS}}": str(shed["committedUnits"]),
+        "{{VIGIL_TP}}": str(tp(vigil["committedUnits"])),
+        "{{SHED_TP}}": str(tp(shed["committedUnits"])),
+        "{{VIGIL_VTP}}": str(tp(vigil["committedUnits"] - vigil["violations"])),
+        "{{SHED_VTP}}": str(tp(shed["committedUnits"] - shed["violations"])),
         "{{RESULTS_DIR}}": os.path.basename(rdir.rstrip("/")),
         "{{DATA_JSON}}": json.dumps(data),
     }
@@ -196,10 +205,12 @@ TEMPLATE = r"""<!doctype html>
         <tr><td>Out-of-order violations</td><td class="num v-good">{{VIGIL_VIOL}}</td><td class="num v-bad">{{SHED_VIOL}}</td></tr>
         <tr><td>Lock acquisitions</td><td class="num">{{VIGIL_ACQ}}</td><td class="num">{{SHED_ACQ}}</td></tr>
         <tr><td>Committed work units</td><td class="num">{{VIGIL_UNITS}}</td><td class="num">{{SHED_UNITS}}</td></tr>
+        <tr><td>Throughput (units/s)</td><td class="num">{{VIGIL_TP}}</td><td class="num">{{SHED_TP}}</td></tr>
+        <tr><td>Valid throughput (units/s)</td><td class="num v-good">{{VIGIL_VTP}}</td><td class="num">{{SHED_VTP}}</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="note">Vigil often commits fewer units under heavy faults: when a frozen holder is fenced, its in-flight work is rejected and re-done - it trades completion for correctness. ShedLock's higher unit count includes the stale writes counted as violations.</p>
+  <p class="note">"Valid throughput" excludes the stale writes counted as violations. ShedLock's raw throughput looks higher, but part of it is corruption. Vigil commits fewer units under heavy faults because a fenced holder's in-flight work is rejected and re-done - it trades completion for correctness.</p>
 
   <h2>Causation - corruption follows the faults</h2>
   <div class="chartcard">
